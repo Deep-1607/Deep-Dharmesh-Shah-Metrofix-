@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="MetroFix – Offline Metro Fault Reporting and Tracking System for maintenance staff." />
+  <title>MetroFix – Metro Fault Reporting System</title>
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#0a1628" />
+  <!-- apple-touch-icon uses an inline data URI so no network request is needed -->
+  <link rel="apple-touch-icon" href="icon-192.svg" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- ===== OFFLINE BANNER ===== -->
+  <!-- Hidden by default; JS shows it when navigator.onLine is false -->
+  <div class="offline-banner hidden" id="offlineBanner" role="status" aria-live="polite">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" style="width:18px;height:18px;flex-shrink:0"><line x1="1" y1="1" x2="23" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55M5 12.55a10.94 10.94 0 0 1 5.17-2.39M10.71 5.05A16 16 0 0 1 22.56 9M1.42 9a15.91 15.91 0 0 1 4.7-2.88M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01"/></svg>
+    <span>You are offline. MetroFix is fully cached and working — all data is saved locally on this device.</span>
+  </div>
+
+  <!-- ===== SW UPDATE BANNER ===== -->
+  <div class="update-banner hidden" id="updateBanner" role="status">
+    <span>A new version of MetroFix is available.</span>
+    <button class="btn btn-sm" id="btnUpdateSW" style="background:var(--amber-500);color:var(--navy-900);margin-left:12px">Reload to update</button>
+  </div>
+
+  <!-- Shown only when JavaScript is disabled -->
+  <noscript>
+    <div style="font-family:system-ui,sans-serif;padding:40px;text-align:center;background:#0a1628;color:#f59e0b;min-height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px">
+      <strong style="font-size:1.4rem">MetroFix requires JavaScript</strong>
+      <p style="color:#94a3b8;max-width:400px">Please enable JavaScript in your browser. No internet connection is needed — the app runs entirely on this device once JavaScript is enabled.</p>
+    </div>
+  </noscript>
+  <!-- SIDEBAR -->
+  <nav class="sidebar" id="sidebar" role="navigation" aria-label="Main navigation">
+    <div class="sidebar-brand">
+      <div class="brand-icon" aria-hidden="true">M</div>
+      <div class="brand-text">
+        <span class="brand-title">MetroFix</span>
+        <span class="brand-sub">Fault Management</span>
+      </div>
+    </div>
+
+    <div class="sidebar-status">
+      <span class="status-dot" id="offlineIndicator"></span>
+      <span class="status-label" id="offlineLabel">Offline Ready</span>
+    </div>
+
+    <ul class="nav-list" role="list">
+      <li>
+        <button class="nav-btn active" data-view="dashboard" id="nav-dashboard" aria-current="page">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+          Dashboard
+        </button>
+      </li>
+      <li>
+        <button class="nav-btn" data-view="report" id="nav-report">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          Report Fault
+        </button>
+      </li>
+      <li>
+        <button class="nav-btn" data-view="manage" id="nav-manage">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+          Manage Faults
+        </button>
+      </li>
+      <li>
+        <button class="nav-btn" data-view="predictive" id="nav-predictive">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+          Predictive Maintenance
+        </button>
+      </li>
+      <li>
+        <button class="nav-btn" data-view="nightshift" id="nav-nightshift">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+          My Night Shift
+        </button>
+      </li>
+      <li>
+        <button class="nav-btn" data-view="settings" id="nav-settings">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          Data &amp; Settings
+        </button>
+      </li>
+    </ul>
+
+    <div class="sidebar-footer">
+      <div id="userInfo" class="user-info hidden">
+        <div class="user-name" id="userName">User Name</div>
+        <div class="user-role" id="userRole">Role - Station</div>
+        <button class="btn btn-ghost btn-sm" id="btnSignOut" style="width: 100%; margin-top: 8px;">Sign Out</button>
+      </div>
+      <div style="margin-top: 12px">
+        <span>MetroFix v1.0</span>
+        <span>GDG Metro Hackathon</span>
+      </div>
+    </div>
+  </nav>
+
+  <!-- MAIN CONTENT -->
+  <main class="main-content" id="mainContent">
+
+    <!-- LOGIN VIEW -->
+    <section class="view active" id="view-login" aria-label="Login">
+      <div class="login-container">
+        <div class="login-header">
+          <div class="brand-icon mx-auto" style="margin-bottom: 16px;">M</div>
+          <h1 class="view-title">Welcome to MetroFix</h1>
+          <p class="view-sub">Sign in to access your operational workspace</p>
+        </div>
+        
+        <div class="card form-card login-card">
+          <div id="loginFeedback" class="feedback-box hidden" role="alert"></div>
+          <form id="loginForm" novalidate>
+            <div class="form-group">
+              <label class="form-label" for="loginStaffId">Staff ID</label>
+              <input class="form-input" type="text" id="loginStaffId" name="loginStaffId" required placeholder="e.g. admin.metro" />
+            </div>
+            <div class="form-group" style="margin-top: 16px;">
+              <label class="form-label" for="loginPassword">Password</label>
+              <input class="form-input" type="password" id="loginPassword" name="loginPassword" required placeholder="••••••••" />
+            </div>
+            <button type="submit" class="btn btn-primary" id="btnLogin" style="width: 100%; margin-top: 24px; justify-content: center;">Sign In</button>
+          </form>
+        </div>
+
+        <div class="card demo-accounts-card">
+          <h3 style="font-size: 0.9rem; margin-bottom: 8px; color: var(--navy-800);">Demo Accounts (Password: MetroDemo26!)</h3>
+          <ul style="font-size: 0.8rem; color: var(--gray-600); padding-left: 16px; line-height: 1.6;">
+            <li><strong>admin.metro</strong>: Administrator (All Stations)</li>
+            <li><strong>manager.central</strong>: Station Manager (Central Station)</li>
+            <li><strong>engineer.central</strong>: Maintenance Engineer (Central Station)</li>
+            <li><strong>technician.central</strong>: Field Technician (Central Station)</li>
+            <li><strong>staff.central</strong>: Station Staff (Central Station)</li>
+            <li><strong>manager.north</strong>: Station Manager (North Terminal)</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- DASHBOARD VIEW -->
+    <section class="view" id="view-dashboard" aria-label="Dashboard">
+      <header class="view-header">
+        <div>
+          <h1 class="view-title">Operations Dashboard</h1>
+          <p class="view-sub">Real-time fault overview across all metro stations</p>
+        </div>
+        <div class="header-actions">
+          <span class="last-updated" id="lastUpdated">—</span>
+          <button class="btn btn-primary" id="btnQuickReport">+ Quick Report</button>
+        </div>
+      </header>
+
+      <div class="stats-grid" role="region" aria-label="Fault statistics">
+        <div class="stat-card">
+          <div class="stat-label">Total Faults</div>
+          <div class="stat-number" id="statTotalNum">0</div>
+          <div class="stat-desc">All records</div>
+        </div>
+        <div class="stat-card stat-open">
+          <div class="stat-label">Open</div>
+          <div class="stat-number" id="statOpenNum">0</div>
+          <div class="stat-desc">Awaiting action</div>
+        </div>
+        <div class="stat-card stat-critical">
+          <div class="stat-label">Critical</div>
+          <div class="stat-number" id="statCriticalNum">0</div>
+          <div class="stat-desc">Immediate attention</div>
+        </div>
+        <div class="stat-card stat-resolved">
+          <div class="stat-label">Resolved</div>
+          <div class="stat-number" id="statResolvedNum">0</div>
+          <div class="stat-desc">Completed repairs</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">Recent Fault Reports</h2>
+          <button class="btn btn-ghost" id="btnViewAll">View All</button>
+        </div>
+        <div class="table-wrap">
+          <table class="fault-table" id="recentFaultsTable" aria-label="Recent fault reports">
+            <thead>
+              <tr>
+                <th>Fault ID</th>
+                <th>Station</th>
+                <th>Asset</th>
+                <th>Severity</th>
+                <th>Status</th>
+                <th>Reported</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="recentFaultsBody">
+              <tr class="empty-row"><td colspan="7">No faults recorded yet.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- REPORT FAULT VIEW -->
+    <section class="view" id="view-report" aria-label="Report a fault">
+      <header class="view-header">
+        <div>
+          <h1 class="view-title">Report a Fault</h1>
+          <p class="view-sub">Submit a new equipment fault report</p>
+        </div>
+      </header>
+
+      <div class="card form-card">
+        <div id="reportFeedback" class="feedback-box hidden" role="alert" aria-live="polite"></div>
+
+        <form id="faultForm" novalidate>
+          <div class="form-grid">
+            <div class="form-group">
+              <label class="form-label" for="stationName">Station Name <span class="required" aria-hidden="true">*</span></label>
+              <select class="form-input" id="stationName" name="stationName" required>
+                <option value="">— Select Station —</option>
+                <option>Central Station</option>
+                <option>North Terminal</option>
+                <option>South Gate</option>
+                <option>East Junction</option>
+                <option>West Depot</option>
+                <option>Airport Line</option>
+                <option>City Square</option>
+                <option>Harbour Bridge</option>
+                <option>Tech Park</option>
+                <option>University Hub</option>
+              </select>
+              <span class="field-error" id="err-stationName"></span>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="assetCategory">Asset Category <span class="required" aria-hidden="true">*</span></label>
+              <select class="form-input" id="assetCategory" name="assetCategory" required>
+                <option value="">— Select Category —</option>
+                <option>Escalator</option>
+                <option>Elevator / Lift</option>
+                <option>Ticket Machine</option>
+                <option>Platform Screen Door</option>
+                <option>Signage / Display</option>
+                <option>Lighting</option>
+                <option>HVAC / Ventilation</option>
+                <option>CCTV / Security</option>
+                <option>Track / Rail</option>
+                <option>Power / Electrical</option>
+                <option>Communication System</option>
+                <option>Fire Safety Equipment</option>
+                <option>Other</option>
+              </select>
+              <span class="field-error" id="err-assetCategory"></span>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="assetId">Asset Identifier <span class="required" aria-hidden="true">*</span></label>
+              <input class="form-input" type="text" id="assetId" name="assetId" placeholder="e.g. ESC-03, TM-12A" required maxlength="30" />
+              <span class="field-error" id="err-assetId"></span>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="severity">Severity <span class="required" aria-hidden="true">*</span></label>
+              <select class="form-input" id="severity" name="severity" required>
+                <option value="">— Select Severity —</option>
+                <option value="Critical">Critical – Safety risk / full stoppage</option>
+                <option value="High">High – Significant disruption</option>
+                <option value="Medium">Medium – Partial disruption</option>
+                <option value="Low">Low – Minor / cosmetic</option>
+              </select>
+              <span class="field-error" id="err-severity"></span>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="reporterName">Reporter Name <span class="required" aria-hidden="true">*</span></label>
+              <input class="form-input" type="text" id="reporterName" name="reporterName" placeholder="Your full name" required maxlength="60" />
+              <span class="field-error" id="err-reporterName"></span>
+            </div>
+
+            <div class="form-group form-group--full">
+              <label class="form-label" for="description">Fault Description <span class="required" aria-hidden="true">*</span></label>
+              <textarea class="form-input form-textarea" id="description" name="description" placeholder="Describe the fault clearly: what is broken, what happened, what is the visible impact…" required maxlength="500" rows="4"></textarea>
+              <span class="field-error" id="err-description"></span>
+              <span class="char-count" id="descCharCount">0 / 500</span>
+            </div>
+          </div>
+
+          <div class="form-footer">
+            <div class="generated-id-box" id="previewIdBox">
+              <span class="gen-label">Auto-generated Fault ID:</span>
+              <span class="gen-id" id="previewId">MFX-XXXXXX</span>
+            </div>
+            <div class="form-actions">
+              <button type="button" class="btn btn-ghost" id="btnClearForm">Clear</button>
+              <button type="submit" class="btn btn-primary" id="btnSubmitFault">Submit Fault Report</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <!-- MANAGE FAULTS VIEW -->
+    <section class="view" id="view-manage" aria-label="Manage faults">
+      <header class="view-header">
+        <div>
+          <h1 class="view-title">Manage Faults</h1>
+          <p class="view-sub">Search, filter and update all recorded faults</p>
+        </div>
+      </header>
+
+      <div class="card filter-card">
+        <div class="filter-row">
+          <div class="search-wrap">
+            <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input class="form-input search-input" type="search" id="searchInput" placeholder="Search ID, station, asset, description…" aria-label="Search faults" />
+          </div>
+          <select class="form-input filter-select" id="filterStatus" aria-label="Filter by status">
+            <option value="">All Statuses</option>
+            <option value="Open">Open</option>
+            <option value="In Progress">In Progress</option>
+            <option value="Resolved">Resolved</option>
+          </select>
+          <select class="form-input filter-select" id="filterSeverity" aria-label="Filter by severity">
+            <option value="">All Severities</option>
+            <option value="Critical">Critical</option>
+            <option value="High">High</option>
+            <option value="Medium">Medium</option>
+            <option value="Low">Low</option>
+          </select>
+          <button class="btn btn-ghost" id="btnClearFilters">Clear</button>
+        </div>
+        <div class="filter-count" id="filterCount" aria-live="polite">Showing all faults</div>
+      </div>
+
+      <div class="card">
+        <div class="table-wrap">
+          <table class="fault-table" id="manageFaultsTable" aria-label="All fault records">
+            <thead>
+              <tr>
+                <th>Fault ID</th>
+                <th>Station</th>
+                <th>Category</th>
+                <th>Asset ID</th>
+                <th>Severity</th>
+                <th>Status</th>
+                <th>Reporter</th>
+                <th>Reported</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="manageFaultsBody">
+              <tr class="empty-row"><td colspan="9">No faults recorded yet.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- PREDICTIVE MAINTENANCE VIEW -->
+    <section class="view" id="view-predictive" aria-label="Predictive Maintenance">
+      <header class="view-header">
+        <div>
+          <h1 class="view-title">Predictive Maintenance Forecast</h1>
+          <p class="view-sub">AI-assisted 7-day failure risk analysis</p>
+        </div>
+        <div class="header-actions">
+          <button class="btn btn-primary" id="btnGenerateRoster">Generate Night Roster</button>
+        </div>
+      </header>
+
+      <div class="card filter-card">
+        <div class="filter-row">
+          <select class="form-input filter-select" id="filterPredStation" aria-label="Filter by station">
+            <option value="">All Stations</option>
+          </select>
+          <select class="form-input filter-select" id="filterPredCategory" aria-label="Filter by category">
+            <option value="">All Categories</option>
+          </select>
+          <select class="form-input filter-select" id="filterPredRisk" aria-label="Filter by risk band">
+            <option value="">All Risk Bands</option>
+            <option value="High">High Risk</option>
+            <option value="Medium">Medium Risk</option>
+            <option value="Low">Low Risk</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="table-wrap">
+          <table class="fault-table" id="predictiveTable" aria-label="Asset risk ranking">
+            <thead>
+              <tr>
+                <th>Risk Score</th>
+                <th>Asset ID</th>
+                <th>Category</th>
+                <th>Station</th>
+                <th>Past Faults</th>
+                <th>Last Fault</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="predictiveBody">
+              <tr class="empty-row"><td colspan="7">No predictive data available.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- MY NIGHT SHIFT VIEW -->
+    <section class="view" id="view-nightshift" aria-label="My Night Shift">
+      <header class="view-header">
+        <div>
+          <h1 class="view-title">My Night Shift Roster</h1>
+          <p class="view-sub">Prioritised preventive maintenance tasks</p>
+        </div>
+        <div class="header-actions">
+          <button class="btn btn-ghost" id="btnExportRoster">Export CSV</button>
+        </div>
+      </header>
+
+      <div class="card">
+        <div class="table-wrap">
+          <table class="fault-table" id="rosterTable" aria-label="Night shift roster">
+            <thead>
+              <tr>
+                <th>Priority</th>
+                <th>Asset ID</th>
+                <th>Station</th>
+                <th>Risk Band</th>
+                <th>Recommended Action</th>
+                <th>Est. Time</th>
+                <th>Assigned To</th>
+                <th>Status</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="rosterBody">
+              <tr class="empty-row"><td colspan="9">No roster generated yet.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- SETTINGS VIEW -->
+    <section class="view" id="view-settings" aria-label="Data and settings">
+      <header class="view-header">
+        <div>
+          <h1 class="view-title">Data &amp; Settings</h1>
+          <p class="view-sub">Manage local data and demo records</p>
+        </div>
+      </header>
+
+      <div class="settings-grid">
+        <div class="card settings-card">
+          <h2 class="card-title">Demo Data</h2>
+          <p class="settings-desc">The application ships with realistic sample faults labelled <strong>[DEMO]</strong>. Use the buttons below to manage them without affecting your own reports.</p>
+          <div class="settings-actions">
+            <button class="btn btn-primary" id="btnSeedDemo">Restore Demo Data</button>
+            <button class="btn btn-danger" id="btnClearDemo">Remove Demo Records</button>
+          </div>
+        </div>
+
+        <div class="card settings-card">
+          <h2 class="card-title">Export Data</h2>
+          <p class="settings-desc">Download all fault records as a JSON file for backup or offline review.</p>
+          <div class="settings-actions">
+            <button class="btn btn-primary" id="btnExport">Export All Faults (JSON)</button>
+          </div>
+        </div>
+
+        <div class="card settings-card danger-card">
+          <h2 class="card-title">Danger Zone</h2>
+          <p class="settings-desc">Permanently delete <strong>all</strong> fault records including your own. This cannot be undone.</p>
+          <div class="settings-actions">
+            <button class="btn btn-danger" id="btnNukeAll">Delete All Records</button>
+          </div>
+        </div>
+
+        <div class="card settings-card">
+          <h2 class="card-title">Storage Info</h2>
+          <div class="storage-info" id="storageInfo">Loading…</div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- DETAIL / EDIT MODAL -->
+  <div class="modal-overlay hidden" id="modalOverlay" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal" id="faultModal">
+      <div class="modal-header">
+        <h2 class="modal-title" id="modalTitle">Fault Details</h2>
+        <button class="modal-close" id="modalClose" aria-label="Close modal">&#10005;</button>
+      </div>
+      <div class="modal-body" id="modalBody"></div>
+      <div class="modal-footer" id="modalFooter"></div>
+    </div>
+  </div>
+
+  <!-- TOAST CONTAINER -->
+  <div class="toast-container" id="toastContainer" aria-live="assertive" aria-atomic="true"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
