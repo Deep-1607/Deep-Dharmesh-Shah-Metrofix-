@@ -34,7 +34,7 @@
    the current version, forcing a fresh download.
    ============================================================ */
 
-const CACHE_VERSION = 'metrofix-v4';
+const CACHE_VERSION = 'metrofix-v5';
 
 /* List every file the app needs to work offline.
    Each entry must be a URL path relative to the SW's scope.  */

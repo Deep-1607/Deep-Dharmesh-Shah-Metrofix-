@@ -643,7 +643,7 @@ function renderNightShiftRoster() {
         actionsHtml = `<span style="font-size:0.8rem; color:var(--gray-500)">No actions</span>`;
       }
     } else {
-      actionsHtml = `<span style="font-size:0.8rem; color:var(--gray-500)">Manage assignments via modal (coming soon)</span>`;
+      actionsHtml = `<button class="btn btn-sm btn-ghost" onclick="openAssignModal('${t.id}')">Manage Assignment</button>`;
     }
     
     return `
@@ -671,6 +671,92 @@ function updateTaskStatus(taskId, newStatus) {
     showToast(`Task ${taskId} marked as ${newStatus}.`, 'success');
     renderNightShiftRoster();
   }
+}
+
+function openAssignModal(taskId) {
+  const roster = loadRoster();
+  const task = roster.find(t => t.id === taskId);
+  if (!task) return;
+
+  document.getElementById('modalTitle').textContent = `Assign Technician: ${task.id}`;
+
+  const techs = Object.keys(ACCOUNTS).filter(k => ACCOUNTS[k].role === 'Field Technician');
+  let selectHtml = `<select id="modalAssignTechSelect" class="form-input" style="margin-top: 8px;">
+    <option value="">-- Unassigned --</option>
+  `;
+  techs.forEach(uid => {
+    // Only show techs matching the station or 'All' (which doesn't usually apply to techs, but let's filter)
+    const t = ACCOUNTS[uid];
+    if (t.station === task.station || t.station === 'All') {
+      const selected = (task.assignedTo === uid) ? 'selected' : '';
+      selectHtml += `<option value="${uid}" ${selected}>${t.name} (${uid})</option>`;
+    }
+  });
+  selectHtml += `</select>`;
+
+  document.getElementById('modalBody').innerHTML = `
+    <div style="margin-bottom: 12px;">
+      <strong>Asset:</strong> ${esc(task.assetId)} (${esc(task.station)})<br>
+      <strong>Action:</strong> ${esc(task.action)} (${task.duration}m)
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="modalAssignTechSelect">Assign To</label>
+      ${selectHtml}
+    </div>
+    <p id="modalAssignWarning" style="color:var(--orange-500); font-size:0.8rem; margin-top:8px; display:none;">
+      Warning: This exceeds the 8-hour shift capacity.
+    </p>
+  `;
+
+  document.getElementById('modalFooter').innerHTML = `
+    <button class="btn btn-ghost" id="modalCancelBtn">Cancel</button>
+    <button class="btn btn-primary" id="modalSaveAssignBtn" data-id="${esc(task.id)}">Save Assignment</button>
+  `;
+
+  document.getElementById('modalCancelBtn').addEventListener('click', closeModal);
+
+  // Capacity validation on change
+  const selectEl = document.getElementById('modalAssignTechSelect');
+  selectEl.addEventListener('change', () => {
+    const techId = selectEl.value;
+    const warning = document.getElementById('modalAssignWarning');
+    if (!techId) {
+      warning.style.display = 'none';
+      return;
+    }
+    // Calculate current assigned minutes for this tech in this roster
+    const currentMins = roster
+      .filter(t => t.assignedTo === techId && t.id !== task.id)
+      .reduce((sum, t) => sum + t.duration, 0);
+    
+    if (currentMins + task.duration > 480) {
+      warning.style.display = 'block';
+    } else {
+      warning.style.display = 'none';
+    }
+  });
+  // Trigger validation immediately
+  selectEl.dispatchEvent(new Event('change'));
+
+  document.getElementById('modalSaveAssignBtn').addEventListener('click', () => {
+    const newTech = document.getElementById('modalAssignTechSelect').value;
+    const idx = roster.findIndex(t => t.id === taskId);
+    if (idx > -1) {
+      roster[idx].assignedTo = newTech;
+      if (newTech) {
+        if (roster[idx].status === 'Planned') roster[idx].status = 'Assigned';
+      } else {
+        if (roster[idx].status === 'Assigned') roster[idx].status = 'Planned';
+      }
+      saveRoster(roster);
+      showToast('Assignment updated successfully.', 'success');
+      renderNightShiftRoster();
+    }
+    closeModal();
+  });
+
+  document.getElementById('modalOverlay').classList.remove('hidden');
+  document.getElementById('modalClose').focus();
 }
 
 // ── XSS-safe escape ────────────────────────────────────────────
